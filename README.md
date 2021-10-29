@@ -2,5 +2,6 @@
 
 To run just type 
 ```cmd
+npm i
 npm start
 ```
