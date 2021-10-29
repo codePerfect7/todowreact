@@ -1,3 +1,6 @@
-#This is my first React app in which I make a basic Todo App
+# This is my first React app in which I make a basic Todo App
 
-To run just type npm start
+To run just type 
+```cmd
+npm start
+```
