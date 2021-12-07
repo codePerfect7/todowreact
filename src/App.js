@@ -1,53 +1,157 @@
-import React, { useState, useRef, useEffect } from "react";
-import TodoList from "./TodoList";
-import {v4 as uuidv4} from 'uuid';
+import "./styles.css"
+import {useReducer} from "react"
+import DigitButton from './DigitButton.js'
+import OperationButton from './OperationButton.js'
 
-const LOCAL_STORAGE_KEY = 'todoApp.todos'
+export const ACTIONS = {
+  ADD_DIGIT: 'add-digit',
+  CLEAR: 'clear',
+  CHOOSE_OPERATION: 'choose-operation',
+  DELETE_DIGIT: 'delete-digit',
+  EVALUATE: 'evaluate',
+}
+
+function reducer(state, { type, payload }) {
+  switch(type) {
+    case ACTIONS.ADD_DIGIT:
+      if (payload.digit === "0" && state.currentOperand === "0") return state
+      if (state.overwrite) {
+        return {
+          ...state, 
+          currentOperand: payload.digit,
+          overwrite: false
+        }
+      }
+      if (payload.digit === "." && state.currentOperand.includes('.')) return state
+
+      return {
+        ...state,
+        currentOperand: `${state.currentOperand || ""}${payload.digit}`
+      }
+  
+      case ACTIONS.CHOOSE_OPERATION:
+        if (state.currentOperand == null && state.previousOperand == null) return state
+
+        if (state.previousOperand == null) {
+          return {
+            ...state,
+            operation: payload.operation,
+            previousOperand: state.currentOperand,
+            currentOperand: null
+          }
+        }
+
+        if (state.currentOperand == null) {
+          return {
+            ...state,
+            operation: payload.operation
+          }
+        }
+        
+        return {
+          ...state,
+          previousOperand: evaluate(state),
+          operation: payload.operation,
+          currentOperand: null
+        }
+      
+      case ACTIONS.EVALUATE:
+        if (state.operation == null || state.currentOperand == null || state.previousOperand == null) return state
+        return {
+          ...state,
+          overwrite: true,
+          previousOperand: null,
+          operation: null,
+          currentOperand: evaluate(state)
+        }
+      
+      case ACTIONS.DELETE_DIGIT:
+        if (state.overwrite) {
+          return {
+            ...state,
+            overwrite: false,
+            currentOperand: null
+          }
+        }
+        if (state.currentOperand == null) return state
+        if (state.currentOperand.length == 1) {
+          return {
+            ...state, 
+            currentOperand: null
+          }
+        }
+        return {
+          ...state,
+          currentOperand: state.currentOperand.slice(0, -1)
+        }
+
+      case ACTIONS.CLEAR:
+        return {}
+      
+  }
+}
+
+function evaluate({ currentOperand, previousOperand, operation }) {
+  const prev = parseFloat(previousOperand)
+  const current = parseFloat(currentOperand)
+  if (isNaN(prev) || isNaN(current)) return ""
+  let computation = ""
+  switch(operation) {
+    case "+":
+      computation = prev+current
+      break
+    case "-":
+      computation = prev-current
+      break
+    case "*":
+      computation = prev*current
+      break
+    case "÷":
+      computation = prev/current
+      break
+  }
+  return computation.toString()
+}
+
+const INTEGER_FORMATTER = new Intl.NumberFormat('en-IN', {
+  maximumFractionDigits: 0,
+})
+
+function formatOperand(operand) {
+  if (operand == null) return
+  const [integer, decimal] = operand.split('.')
+  if (decimal == null) return INTEGER_FORMATTER.format(integer)
+  return `${INTEGER_FORMATTER.format(integer)}.${decimal}`
+}
 
 function App() {
-  const [todos, setTodos] = useState([])
-  const todoNameRef = useRef();
-
-  useEffect(() => {
-    const storedTodos = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY))
-    if (storedTodos) setTodos(storedTodos)
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(todos))
-  }, [todos])
-
-  function toggleTodo(id) {
-    const newTodos = [...todos]
-    const todo = newTodos.find(todo => todo.id === id)
-    todo.complete = !todo.complete
-    setTodos(newTodos)
-  }
-
-  function handleAddTodo(e) {
-    const name = todoNameRef.current.value;
-    if (name === '') return 
-    setTodos(prevTodos => {
-      return [...prevTodos, {id:uuidv4(), name:name, complete:false}]
-    });
-    todoNameRef.current.value = null;
-  }
-
-  function handleClearTodo() {
-    const newTodos = todos.filter(todo => !todo.complete)
-    setTodos(newTodos)
-  }
-
+  const [{currentOperand, previousOperand, operation}, dispatch] = useReducer(reducer, {});
   return (
-    <>
-    <TodoList todos={todos} toggleTodo={toggleTodo} />
-    <input ref={todoNameRef} type="text" />
-    <button onClick={handleAddTodo}>Add Todo</button>
-    <button onClick={handleClearTodo} >Clear Completed</button>
-    <br />
-    {todos.filter(todo => !todo.complete).length} left to do
-    </>
+    <div className="calculator-grid">
+      <div className="output">
+        <div className="previous-operand">{formatOperand(previousOperand)} {operation}</div>
+        <div className="current-operand">{formatOperand(currentOperand)}</div>
+      </div>
+      <button className="span-two" onClick={() => dispatch({ type: ACTIONS.CLEAR })}>AC</button>
+      <button onClick={() => dispatch({ type: ACTIONS.DELETE_DIGIT })}>DEL</button>
+      <OperationButton operation="÷" dispatch={dispatch} />
+      <DigitButton digit="1" dispatch={dispatch} />
+      <DigitButton digit="2" dispatch={dispatch} />
+      <DigitButton digit="3" dispatch={dispatch} />
+      <OperationButton operation="*" dispatch={dispatch} />
+      <DigitButton digit="4" dispatch={dispatch} />
+      <DigitButton digit="5" dispatch={dispatch} />
+      <DigitButton digit="6" dispatch={dispatch} />
+      <OperationButton operation="+" dispatch={dispatch} />
+      <DigitButton digit="7" dispatch={dispatch} />
+      <DigitButton digit="8" dispatch={dispatch} />
+      <DigitButton digit="9" dispatch={dispatch} />
+      <OperationButton operation="-" dispatch={dispatch} />
+      <DigitButton digit="." dispatch={dispatch} />
+      <DigitButton digit="0" dispatch={dispatch} />
+      <button className="span-two" onClick={() => dispatch({ type: ACTIONS.EVALUATE })}>=</button>
+    </div>
   )
 }
 
-export default App;
+export default App
